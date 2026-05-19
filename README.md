@@ -115,25 +115,105 @@ Only use on systems you own or have explicit permission to test.
 Unauthorized hacking is illegal.
 The author is not responsible for any misuse.
 ```
----
-## 🤝 Contributing
-Pull requests welcome! Feel free to:
-- 🐛 Report bugs
-- 💡 Suggest features
-- 🔧 Add new tools
----
-## 📺 Connect With Me
-| Platform | Link |
-|----------|------|
-| **GitHub** | [daginati](https://github.com/daginati) |
----
-## ⭐ Star This Repo!
-If this helped you, please give it a **star** ⭐ - it helps others find this project!
----
-<p align="center">
-  <b>🔥 Run Linux with GPU Acceleration - No Root Required! 🔥</b>
-  <br><br>
-  Made with ❤️ by <b>Tech Jarves</b>
-</p>
+Пошаговая инструкция
 
+  ▎ Важно: если вы уже установили хак‑lab и он работает нестабильно, лучше полностью удалить старый набор пакетов, чтобы
+  ▎  избежать конфликтов.
 
+  ---
+  1. Подготовка Termux
+
+  # Обновляем базовые пакеты и ставим git (если его ещё нет)
+  pkg update && pkg upgrade -y
+  pkg install -y git
+
+  2. Удаляем старую установку (опционально, но рекомендуется)
+
+  # Если вы ранее запускали uninstall‑скрипт – запустите его ещё раз,
+  # затем удалите оставшиеся каталоги и настройки.
+  bash ~/uninstall-hacklaab.sh   # оригинальный uninstall‑скрипт из репо
+  # Очистка остатков
+  rm -rf ~/Desktop ~/start-hacklab.sh ~/hacktools.sh ~/stop-hacklab.sh \
+         ~/.config/hacklab-gpu.sh \
+         ~/.termux/boot/
+  pkg remove -y xfce4 xfce4-terminal thunar mousepad \
+                 termux-x11-nightly xorg-xrandr \
+                 pulseaudio firefox code-oss git wget curl \
+                 nmap netcat-openbsd whois dnsutils tracepath \
+                 hydra john sqlmap metasploit \
+                 hangover-wine hangover-wowbox64 wine \
+                 mesa-zink mesa-vulkan-icd-freedreno mesa-vulkan-icd-swrast \
+                 vulkan-loader-android
+  # Очистка кэша пакетов (необязательно, но ускорит повторную установку)
+  pkg clean
+
+  3. Клонируем репозиторий (если ещё не сделали) и копируем исправленный скрипт
+
+  # Переходим в удобную директорию, например в home
+  cd ~
+  # Если репозиторий уже cloned – просто переходим в него
+  if [ ! -d termux-hacklab-main ]; then
+      git clone https://github.com/daginati/termux-hacklab.git termux-hacklab-main
+  fi
+  cd termux-hacklab-main
+
+  # Копируем исправленный скрипт в текущую директорию (он уже лежит рядом,
+  # но на всякий случай проверяем)
+  cp install_fixed.sh .
+  chmod +x install_fixed.sh
+
+  4. Запускаем установку
+
+  ./install_fixed.sh
+
+  Скрипт выведет цветной прогресс‑бар и спросит confirmation – нажмите Enter.
+
+  ▎ Ожидайте 15‑30 минут (зависит от скорости интернета и мощности устройства).
+  ▎ На этапах установки пакетов могут появляться сообщения типа “Package … is not available”; скрипт автоматически
+  ▎ делает до 3 повторных попытки для таких пакетов (hydra, john, sqlmap, metasploit).
+
+  5. Проверка после установки
+
+  По завершении вы увидите сообщение INSTALLATION COMPLETE! и инструкции:
+
+  - Запуск рабочего стола:
+  bash ~/start-hacklab.sh
+  - Быстрое меню инструментов:
+  bash ~/hacktools.sh
+  - Остановка desktop:
+  bash ~/stop-hacklab.sh
+
+  6. Первый запуск desktop
+
+  1. Убедитесь, что вы установили Termux:X11 из F‑Droid или Play Market и запустили его (он должен показывать чёрный
+  экран с надписью “Waiting for connection…”).
+  2. В терминале Termux выполните:
+  bash ~/start-hacklab.sh
+  3. Переключитесь на приложение Termux:X11 ( свайпом слева или кнопкой “Show”) – вы увидите рабочее окружение XFCE4.
+  4. Если вы не видите рабочего стола, попробуйте:
+    - Выполнить pulseaudio --start вручную (аудио‑сервер иногда не стартует из‑за прав);
+    - Проверить статус GPU:
+    glxinfo | grep "renderer"
+    - Должно показывать либо Turnip (для Adreno), либо llvmpipe (software). Если видите Software Rasterizer – значит
+  GPU‑драйвер не загрузился; в этом случае desktop всё равно будет работать, но без ускорения OpenGL (это не критично
+  для большинства инструментов).
+
+  7. Что делать, если某些 пакеты всё‑ещё не установились
+
+  Если после выполнения скрипта вы заметили, что, например, hydra или metasploit отсутствуют, просто установите их
+  вручную:
+
+  pkg install -y hydra john sqlmap metasploit
+
+  (при необходимости повторить команду несколько раз – иногда зеркало временно не отвечает).
+
+  8. Готово!
+
+  Теперь у вас есть полностью рабочий Linux‑десктоп с набором инструментов для пентеста, запускаемый прямо в Termux
+  через Termux:X11, без необходимости менять прошивку или root‑доступ к устройству.
+
+  Если понадобится добавить дополнительные пакеты или изменить конфигурацию GPU – отредактируйте файл
+  ~/.config/hacklab-gpu.sh (переменные MESA_GL_VERSION_OVERRIDE, GALLIUM_DRIVER и т.д.) и перезапустите desktop через
+  ~/start-hacklab.sh.
+
+  ---
