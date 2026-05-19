@@ -8,11 +8,11 @@
 ## 🚀 One-Command Installation
 Open **Termux** and paste this:
 ```bash
-curl -sL https://raw.githubusercontent.com/jarvesusaram99/termux-hacklab/main/install.sh | bash
+curl -sL https://raw.githubusercontent.com/daginati/termux-hacklab/main/install.sh | bash
 ```
 **Or using wget:**
 ```bash
-wget -O - https://raw.githubusercontent.com/jarvesusaram99/termux-hacklab/main/install.sh | bash
+wget -O - https://raw.githubusercontent.com/daginati/termux-hacklab/main/install.sh | bash
 ```
 ---
 ## ✨ Features
@@ -70,9 +70,9 @@ Unlike other guides that use **slow software rendering**, this installer sets up
 ```
 ╔══════════════════════════════════════╗
 ║                                      ║
-║   🚀  MOBILE HACKLAB v2.1  🚀        ║
+║   🚀  MOBILE HACKLAB v2.1  🚀       ║
 ║                                      ║
-║       Tech Jarves - YouTube          ║
+║             daginati                 ║
 ║                                      ║
 ╚══════════════════════════════════════╝
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -125,8 +125,7 @@ Pull requests welcome! Feel free to:
 ## 📺 Connect With Me
 | Platform | Link |
 |----------|------|
-| **YouTube** | [@TechJarves](https://youtube.com/@TechJarves) |
-| **GitHub** | [jarvesusaram99](https://github.com/jarvesusaram99) |
+| **GitHub** | [daginati](https://github.com/daginati) |
 ---
 ## ⭐ Star This Repo!
 If this helped you, please give it a **star** ⭐ - it helps others find this project!
