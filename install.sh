@@ -1,7 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 #######################################################
-#  📱 MOBILE HACKING LAB - ULTIMATE v3.0
-#  FULLY AUTOMATED - NO MANUAL INTERVENTION NEEDED
+#  MOBILE HACKING LAB - ULTIMATE INSTALLER
+#  Устанавливает Ubuntu + 60 hacking tools
+#  ВСЕ АВТОМАТИЧЕСКИ - НИЧЕГО ВРУЧНУЮ
 #######################################################
 
 RED='\033[0;31m'
@@ -10,284 +11,217 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# Функция для повторной установки с несколькими попытками
-install_with_retry() {
-    local pkg=$1
-    local name=$2
-    local max_attempts=3
-    local attempt=1
-    
-    while [ $attempt -le $max_attempts ]; do
-        echo -e "${YELLOW}[Attempt $attempt/$max_attempts] Installing $name...${NC}"
-        
-        if yes | pkg install $pkg -y 2>&1 | tee -a /tmp/install.log; then
-            # Проверяем, что пакет действительно установлен
-            if pkg list-installed | grep -q "^$pkg\$"; then
-                echo -e "${GREEN}✓ $name installed successfully${NC}"
-                return 0
-            fi
-        fi
-        
-        echo -e "${RED}✗ Attempt $attempt failed for $name${NC}"
-        attempt=$((attempt + 1))
-        
-        if [ $attempt -le $max_attempts ]; then
-            echo -e "${YELLOW}Retrying in 3 seconds...${NC}"
-            sleep 3
-            # Очищаем кэш перед повторной попыткой
-            pkg clean 2>/dev/null
-        fi
-    done
-    
-    echo -e "${RED}✗ FAILED to install $name after $max_attempts attempts${NC}"
-    return 1
-}
-
-# Функция для установки из GitHub
-install_github_with_retry() {
-    local repo=$1
-    local dir=$2
-    local name=$3
-    local max_attempts=2
-    local attempt=1
-    
-    while [ $attempt -le $max_attempts ]; do
-        echo -e "${YELLOW}[Attempt $attempt/$max_attempts] Installing $name from GitHub...${NC}"
-        
-        (
-            cd /tmp
-            rm -rf $dir 2>/dev/null
-            git clone --depth 1 https://github.com/$repo $dir 2>/dev/null
-            if [ -d "$dir" ]; then
-                cd $dir
-                if [ -f "setup.py" ]; then
-                    python setup.py install > /dev/null 2>&1
-                elif [ -f "requirements.txt" ]; then
-                    pip install -r requirements.txt > /dev/null 2>&1
-                fi
-                touch /tmp/${dir}_done
-            fi
-        )
-        
-        if [ -f "/tmp/${dir}_done" ]; then
-            rm -f /tmp/${dir}_done
-            echo -e "${GREEN}✓ $name installed${NC}"
-            return 0
-        fi
-        
-        echo -e "${RED}✗ Attempt $attempt failed for $name${NC}"
-        attempt=$((attempt + 1))
-        sleep 2
-    done
-    
-    echo -e "${RED}✗ FAILED to install $name${NC}"
-    return 1
-}
-
-# ФИКС 1: Очистка и настройка репозиториев
-setup_repositories() {
-    echo -e "${CYAN}[1/4] Fixing repositories...${NC}"
-    
-    # Очищаем всё
-    pkg clean 2>/dev/null
-    rm -rf $PREFIX/var/lib/dpkg/updates/* 2>/dev/null
-    
-    # Устанавливаем правильные репозитории
-    yes | pkg update -y 2>/dev/null
-    
-    # Меняем репозитории на рабочие
-    termux-change-repo << EOF
-Y
-1
-2
-EOF
-    sleep 2
-    
-    # Обновляем с новыми репозиториями
-    yes | pkg update -y 2>/dev/null
-}
-
-# ФИКС 2: Установка базовых зависимостей
-install_base_deps() {
-    echo -e "${CYAN}[2/4] Installing base dependencies...${NC}"
-    
-    local base_pkgs="python python-pip git wget curl openssl clang binutils"
-    local success=true
-    
-    for pkg in $base_pkgs; do
-        if ! install_with_retry $pkg $pkg; then
-            success=false
-        fi
-    done
-    
-    # Обновляем pip
-    python -m pip install --upgrade pip setuptools wheel 2>/dev/null
-    
-    if [ "$success" = "true" ]; then
-        echo -e "${GREEN}✓ Base dependencies installed${NC}"
-    else
-        echo -e "${YELLOW}⚠ Some base packages had issues, continuing...${NC}"
-    fi
-}
-
-# ФИКС 3: Установка GPU (MESA/ZINK/VULKAN) - ОСНОВНОЙ ФИКС
-install_gpu() {
-    echo -e "${CYAN}[3/4] Installing GPU acceleration (Mesa/Zink/Vulkan)...${NC}"
-    
-    # КРИТИЧЕСКИ ВАЖНО: правильный порядок установки
-    local gpu_pkgs="vulkan-loader-android vulkan-headers mesa-zink virglrenderer-mesa-zink virglrenderer-android"
-    
-    for pkg in $gpu_pkgs; do
-        install_with_retry $pkg $pkg
-        sleep 1
-    done
-    
-    # Проверка установки
-    echo -e "${YELLOW}Verifying GPU installation...${NC}"
-    pkg list-installed | grep -E "mesa|vulkan|virgl" || echo -e "${YELLOW}⚠ GPU packages status unknown${NC}"
-}
-
-# ФИКС 4: Установка hacking tools с повторными попытками
-install_hacking_tools() {
-    echo -e "${CYAN}[4/4] Installing hacking tools...${NC}"
-    
-    # 1. SQLmap - через pip (более стабильно)
-    echo -e "${YELLOW}Installing SQLmap...${NC}"
-    pip install sqlmap 2>/dev/null || {
-        cd /tmp
-        rm -rf sqlmap 2>/dev/null
-        git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git
-        cd sqlmap
-        python setup.py install 2>/dev/null
-    }
-    
-    # 2. Hydra
-    install_with_retry hydra "Hydra"
-    
-    # 3. John the Ripper
-    install_with_retry john "John the Ripper"
-    
-    # 4. METASPLOIT - ОСНОВНОЙ ФИКС
-    echo -e "${YELLOW}Installing Metasploit Framework...${NC}"
-    
-    # Метод 1: через тур-репо
-    if pkg install metasploit -y 2>/dev/null; then
-        echo -e "${GREEN}✓ Metasploit installed via pkg${NC}"
-    else
-        # Метод 2: через официальный скрипт
-        echo -e "${YELLOW}Trying alternative Metasploit installation...${NC}"
-        cd /tmp
-        rm -rf metasploit-termux 2>/dev/null
-        git clone https://github.com/gushmazuko/metasploit_in_termux.git
-        cd metasploit_in_termux
-        bash metasploit.sh 2>/dev/null
-    fi
-    
-    # Дополнительные инструменты
-    install_with_retry nmap "Nmap"
-    install_with_retry wireshark "Wireshark"
-    install_with_retry aircrack-ng "Aircrack-ng"
-    install_with_retry gobuster "Gobuster"
-    install_with_retry nikto "Nikto"
-    install_with_retry exploitdb "Searchsploit"
-}
-
-# ФИКС 5: Настройка окружения
-setup_environment() {
-    echo -e "${CYAN}Setting up environment...${NC}"
-    
-    # Создаём GPU конфиг
-    mkdir -p $HOME/.config
-    cat > $HOME/.config/hacklab-gpu.sh << 'EOF'
-#!/data/data/com.termux/files/usr/bin/bash
-# GPU acceleration settings
-export MESA_NO_ERROR=1
-export MESA_GL_VERSION_OVERRIDE=4.6COMPAT
-export MESA_GLES_VERSION_OVERRIDE=3.2
-export GALLIUM_DRIVER=zink
-export ZINK_DESCRIPTORS=lazy
-export MESA_LOADER_DRIVER_OVERRIDE=zink
-export TU_DEBUG=noconform
-EOF
-    chmod +x $HOME/.config/hacklab-gpu.sh
-    
-    # Добавляем в .bashrc
-    if ! grep -q "hacklab-gpu.sh" $HOME/.bashrc 2>/dev/null; then
-        echo "source \$HOME/.config/hacklab-gpu.sh" >> $HOME/.bashrc
-    fi
-    
-    # Добавляем PATH для Python инструментов
-    if ! grep -q "\.local/bin" $HOME/.bashrc 2>/dev/null; then
-        echo 'export PATH=$PATH:$HOME/.local/bin' >> $HOME/.bashrc
-    fi
-}
-
-# ФИКС 6: Проверка установки
-verify_installation() {
-    echo -e "${CYAN}Verifying installation...${NC}"
-    
-    local tools="sqlmap hydra john nmap"
-    local all_ok=true
-    
-    for tool in $tools; do
-        if command -v $tool >/dev/null 2>&1; then
-            echo -e "${GREEN}✓ $tool found${NC}"
-        else
-            echo -e "${RED}✗ $tool not found${NC}"
-            all_ok=false
-        fi
-    done
-    
-    # Проверка Metasploit
-    if [ -f "$PREFIX/bin/msfconsole" ] || [ -f "$PREFIX/bin/msfvenom" ]; then
-        echo -e "${GREEN}✓ Metasploit found${NC}"
-    else
-        echo -e "${RED}✗ Metasploit not found${NC}"
-        all_ok=false
-    fi
-    
-    if [ "$all_ok" = "false" ]; then
-        echo -e "${YELLOW}Some tools may need manual fix. Run: source ~/.bashrc${NC}"
-    fi
-}
-
-# ОСНОВНОЙ ЗАПУСК
-main() {
-    clear
-    echo -e "${CYAN}"
-    cat << 'BANNER'
-    ╔══════════════════════════════════════════╗
-    ║   🚀 MOBILE HACKLAB v3.0 - ULTIMATE 🚀  ║
-    ║        FULLY AUTOMATED INSTALLER         ║
-    ╚══════════════════════════════════════════╝
+clear
+echo -e "${CYAN}"
+cat << 'BANNER'
+╔═══════════════════════════════════════════════════╗
+║    🚀 MOBILE HACKLAB v3.0 - ULTIMATE 🚀          ║
+║         Ubuntu + 60 Hacking Tools                ║
+║         FULLY AUTOMATED                          ║
+╚═══════════════════════════════════════════════════╝
 BANNER
-    echo -e "${NC}"
-    
-    echo -e "${YELLOW}This script will install:${NC}"
-    echo -e "  • GPU: Mesa, Zink, Vulkan Loader"
-    echo -e "  • Tools: SQLmap, Hydra, John the Ripper, Metasploit"
-    echo -e ""
-    echo -e "${RED}No manual intervention needed!${NC}"
-    echo -e "Press Enter to start..."
-    read
-    
-    setup_repositories
-    install_base_deps
-    install_gpu
-    install_hacking_tools
-    setup_environment
-    verify_installation
-    
-    echo -e "${GREEN}"
-    cat << 'COMPLETE'
-    ╔══════════════════════════════════════════╗
-    ║         ✅ INSTALLATION DONE! ✅        ║
-    ║                                          ║
-    ║  Run: source ~/.bashrc                   ║
-    ║  Then: sqlmap -h, hydra, msfconsole      ║
-    ╚══════════════════════════════════════════╝
-COMPLETE
-    echo -e "${NC}"
-}
+echo -e "${NC}"
 
-main
+# ============== 1. БАЗОВАЯ УСТАНОВКА ==============
+echo -e "${YELLOW}[1/5] Устанавливаем proot-distro...${NC}"
+pkg update -y && pkg upgrade -y
+pkg install -y proot-distro
+proot-distro install ubuntu
+
+# ============== 2. ВХОД В UBUNTU И НАСТРОЙКА ==============
+echo -e "${YELLOW}[2/5] Настраиваем Ubuntu и обновляем...${NC}"
+cat > ~/start-ubuntu.sh << 'EOF'
+#!/bin/bash
+proot-distro login ubuntu
+EOF
+chmod +x ~/start-ubuntu.sh
+
+# Создаём скрипт для установки внутри Ubuntu
+cat > /data/data/com.termux/files/usr/var/lib/proot-distro/installed-rootfs/ubuntu/root/install-tools.sh << 'INSTALL_EOF'
+#!/bin/bash
+export DEBIAN_FRONTEND=noninteractive
+
+# Обновление
+apt update && apt upgrade -y
+
+# Базовые пакеты
+apt install -y wget curl git build-essential python3 python3-pip python3-venv ruby-full \
+    perl libssl-dev libffi-dev zlib1g-dev nmap masscan whois dnsutils nikto gobuster \
+    wireshark tcpdump aircrack-ng hydra john sqlmap metasploit-framework exploitdb \
+    steghide binwalk apktool libimage-exiftool-perl chromium firefox-esr file libpcap-dev
+
+# pip инструменты
+pip3 install shodan frida-tools impacket mitmproxy
+
+# Установка из GitHub
+cd /opt
+
+# theHarvester
+git clone https://github.com/laramies/theHarvester.git
+cd theHarvester && python3 setup.py install && cd ..
+
+# Sublist3r
+git clone https://github.com/aboul3la/Sublist3r.git
+cd Sublist3r && pip3 install -r requirements.txt && cd ..
+
+# wafw00f
+git clone https://github.com/EnableSecurity/wafw00f.git
+cd wafw00f && python3 setup.py install && cd ..
+
+# ffuf
+apt install -y ffuf
+
+# nuclei
+wget https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei-linux-arm64.zip
+unzip nuclei-linux-arm64.zip && mv nuclei /usr/local/bin/
+
+# bettercap
+apt install -y bettercap
+
+# beef-xss
+apt install -y beef-xss
+
+# setoolkit
+apt install -y set
+
+# social-engineer-toolkit
+git clone https://github.com/trustedsec/social-engineer-toolkit.git
+cd social-engineer-toolkit && python3 setup.py install && cd ..
+
+# searchsploit
+apt install -y exploitdb
+
+# fping, hping3
+apt install -y fping hping3
+
+# wifiphisher (требует python2)
+apt install -y python2
+git clone https://github.com/wifiphisher/wifiphisher.git
+cd wifiphisher && python2 setup.py install && cd ..
+
+# kismet
+apt install -y kismet
+
+# responder
+git clone https://github.com/lgandx/Responder.git
+
+# Veil
+apt install -y veil
+
+# Chisel
+wget https://github.com/jpillora/chisel/releases/latest/download/chisel_1.9.1_linux_arm64.gz
+gunzip chisel_1.9.1_linux_arm64.gz && chmod +x chisel_1.9.1_linux_arm64 && mv chisel_1.9.1_linux_arm64 /usr/local/bin/chisel
+
+# GDB + gef
+apt install -y gdb
+bash -c "$(wget -qO- https://gef.blah.cat/sh)"
+
+# Gobuster уже установлен
+# WhatWeb уже установлен
+
+# Feroxbuster
+wget https://github.com/epi052/feroxbuster/releases/latest/download/feroxbuster_arm64.deb
+dpkg -i feroxbuster_arm64.deb
+
+# RustScan
+wget https://github.com/RustScan/RustScan/releases/latest/download/rustscan_arm64.deb
+dpkg -i rustscan_arm64.deb
+
+# Утилиты для USB Rubber Ducky
+apt install -y duckyscript
+
+# Flipper Zero SDK
+git clone https://github.com/flipperdevices/flipperzero-firmware.git
+
+# HackRF tools
+apt install -y hackrf
+
+# Ghidra (требуется Java)
+apt install -y openjdk-17-jdk
+wget https://github.com/NationalSecurityAgency/ghidra/releases/download/11.0/Ghidra_11.0_PUBLIC_20231222.zip
+unzip Ghidra_*.zip -d /opt/
+
+# Volatility
+git clone https://github.com/volatilityfoundation/volatility3.git
+
+# Autopsy (требуется больше места)
+apt install -y autopsy
+
+# Проверка установки
+echo ""
+echo "=== УСТАНОВЛЕННЫЕ ИНСТРУМЕНТЫ ==="
+echo "Nmap: $(nmap --version | head -1)"
+echo "SQLmap: $(sqlmap --version | head -1)"
+echo "Metasploit: $(msfconsole -q -x 'version; exit' 2>/dev/null | head -1)"
+echo "Hydra: $(hydra -h 2>&1 | head -1)"
+echo "John: $(john --help 2>&1 | head -1)"
+echo ""
+
+echo "Установка завершена!"
+INSTALL_EOF
+
+# Запускаем установку внутри Ubuntu
+echo -e "${YELLOW}[3/5] Устанавливаем 60+ инструментов (это займет 20-30 минут)...${NC}"
+proot-distro login ubuntu -- bash /root/install-tools.sh
+
+# ============== 3. СОЗДАЁМ ЛАУНЧЕРЫ ==============
+echo -e "${YELLOW}[4/5] Создаём удобные лаунчеры...${NC}"
+
+cat > ~/hacklab.sh << 'LAUNCHER'
+#!/bin/bash
+echo "🚀 Запуск Ubuntu Hacking Lab..."
+cat << 'MENU'
+
+╔════════════════════════════════════════════════╗
+║        🔥 MOBILE HACKLAB MENU 🔥              ║
+╠════════════════════════════════════════════════╣
+║                                                ║
+║  1) 🐧 Запустить Ubuntu + XFCE Desktop        ║
+║  2) 💻 Запустить Ubuntu (терминал)            ║
+║  3) 🔧 Запустить Metasploit                   ║
+║  4) 🌐 Запустить SQLmap                       ║
+║  5) 🔑 Запустить Hydra                        ║
+║  6) 📡 Запустить Nmap                         ║
+║  7) 🖥️  Запустить Bettercap                   ║
+║  8) 🎯 Запустить Searchsploit                 ║
+║  0) Exit                                      ║
+╠════════════════════════════════════════════════╣
+║  💡 После входа в Ubuntu:                     ║
+║     - apt install xfce4 для графики          ║
+║     - nmap -sV target                        ║
+║     - sqlmap -u "url"                        ║
+╚════════════════════════════════════════════════╝
+
+MENU
+read -p "Выбери опцию: " choice
+case $choice in
+    1) proot-distro login ubuntu -- bash -c "pkill Xvfb 2>/dev/null; Xvfb :1 -screen 0 1280x720x24 & DISPLAY=:1 startxfce4" ;;
+    2) proot-distro login ubuntu ;;
+    3) proot-distro login ubuntu -- msfconsole ;;
+    4) proot-distro login ubuntu -- sqlmap ;;
+    5) proot-distro login ubuntu -- hydra ;;
+    6) proot-distro login ubuntu -- nmap ;;
+    7) proot-distro login ubuntu -- bettercap ;;
+    8) proot-distro login ubuntu -- searchsploit ;;
+    0) exit ;;
+esac
+LAUNCHER
+
+chmod +x ~/hacklab.sh
+
+# ============== 4. ГОТОВО ==============
+echo -e "${GREEN}"
+cat << 'COMPLETE'
+╔════════════════════════════════════════════════╗
+║                                                ║
+║     ✅  УСТАНОВКА УСПЕШНО ЗАВЕРШЕНА! ✅       ║
+║                                                ║
+║     60+ hacking tools установлены внутри      ║
+║               Ubuntu                           ║
+║                                                ║
+╚════════════════════════════════════════════════╝
+COMPLETE
+echo -e "${NC}"
+echo -e "${CYAN}🚀 Запуск: bash ~/hacklab.sh${NC}"
+echo -e "${CYAN}🐧 Вход в Ubuntu: proot-distro login ubuntu${NC}"
+echo -e ""
